@@ -2,7 +2,7 @@ name: Minecraft Server Continuous Backup
 
 on:
   schedule:
-    - cron: "*/355 * * * *"  # restart co 5 godzin 55 minut
+    - cron: "*/355 * * * *"  # restart co 5 godzin i 55 minut
   workflow_dispatch:
 
 jobs:
@@ -25,7 +25,11 @@ jobs:
 
       - name: Authenticate ngrok
         run: |
-          ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          if [ -z "${{ secrets.NGROK_AUTH_TOKEN }}" ]; then
+            echo "ERROR: NGROK_AUTH_TOKEN is not set!"
+            exit 1
+          fi
+          ngrok authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
 
       # --- PAPERMC SERVER ---
       - name: Download PaperMC
@@ -78,4 +82,3 @@ jobs:
               fi
             fi
             sleep 60
-          done
