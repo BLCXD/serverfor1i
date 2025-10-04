@@ -62,13 +62,14 @@ jobs:
           echo "Public server URL:"
           curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
 
-      # --- CONTINUOUS BACKUP ---
+      # --- CONTINUOUS BACKUP EVERY MINUTE ---
       - name: Continuous backup every minute
         run: |
           cd server
           git config user.email "actions@github.com"
           git config user.name "github-actions[bot]"
 
+          bash -c '
           for i in {1..350}; do
             if [ -d world ]; then
               tar -czf ../world-backup.tar.gz world
@@ -82,3 +83,5 @@ jobs:
               fi
             fi
             sleep 60
+          done
+          '
