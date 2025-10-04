@@ -1,4 +1,4 @@
-name: Minecraft Server Continuous Backup with Cloudflare
+name: Minecraft Server Backup Local Only
 
 on:
   schedule:
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y curl unzip jq socat
+          sudo apt install -y curl unzip jq
 
       # --- DOWNLOAD PAPERMC ---
       - name: Download PaperMC
@@ -46,19 +46,14 @@ jobs:
             tar -xzf ../world-backup.tar.gz
           fi
 
-      # --- START SERVER ---
+      # --- START SERVER (LOCAL ONLY) ---
       - name: Start Minecraft Server
         run: |
           cd server
+          echo "Starting Minecraft server locally..."
           java -Xmx2G -Xms1G -jar server.jar nogui &
-
-      # --- CLOUDflare TUNNEL ---
-      - name: Start Cloudflare Tunnel
-        run: |
-          curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
-          sudo dpkg -i cloudflared.deb
-          cloudflared tunnel --url tcp://localhost:25565 --no-autoupdate &
-          echo "Cloudflare Tunnel running. Check your tunnel dashboard for public address."
+          sleep 10
+          echo "Server started (local only, no public TCP access)."
 
       # --- CONTINUOUS BACKUP EVERY MINUTE ---
       - name: Continuous backup every minute
