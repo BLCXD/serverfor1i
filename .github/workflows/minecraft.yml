@@ -11,6 +11,7 @@ on:
 jobs:
   minecraft:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,9 +21,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y openjdk-17-jre-headless jq ngrok git unzip wget zip
+          sudo apt install -y openjdk-17-jre-headless wget unzip jq git
 
-      - name: Ensure EULA
+      - name: Download ngrok
+        run: |
+          wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -O ngrok.tgz
+          tar -xvzf ngrok.tgz
+          sudo mv ngrok /usr/local/bin/ngrok
+          ngrok version
+
+      - name: Accept EULA
         run: echo "eula=true" > eula.txt
 
       - name: Start Minecraft Server
@@ -31,7 +39,7 @@ jobs:
 
       - name: Expose via ngrok
         run: |
-          ngrok tcp 25565 --log=stdout &
+          ./ngrok tcp 25565 --log=stdout &
           sleep 10
           echo "Public server URL:"
           curl --silent http://127.0.0.1:4040/api/tunnels | jq '.tunnels[0].public_url'
@@ -41,12 +49,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Backup co 1 minutę przez 1 godzinę (zmień pętlę jeśli chcesz dłużej)
           for i in {1..60}; do
             echo "Backup iteration $i"
             git add world
-
-            # Commit tylko jeśli są zmiany
             if ! git diff --cached --quiet; then
               git commit -m "Ultra-frequent backup iteration $i"
               git push
@@ -54,6 +59,5 @@ jobs:
             else
               echo "No changes detected. Skipping commit."
             fi
-
-            sleep 60  # 1 minuta
+            sleep 60
           done
