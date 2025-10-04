@@ -1,8 +1,8 @@
-name: Minecraft Server Backup Local Only
+name: Minecraft Server with Playit.gg
 
 on:
   schedule:
-    - cron: "*/355 * * * *"  # restart co 5 godzin i 55 minut
+    - cron: "*/355 * * * *"  # restart co 5 godzin 55 minut
   workflow_dispatch:
 
 jobs:
@@ -46,14 +46,27 @@ jobs:
             tar -xzf ../world-backup.tar.gz
           fi
 
-      # --- START SERVER (LOCAL ONLY) ---
+      # --- START SERVER ---
       - name: Start Minecraft Server
         run: |
           cd server
-          echo "Starting Minecraft server locally..."
           java -Xmx2G -Xms1G -jar server.jar nogui &
           sleep 10
-          echo "Server started (local only, no public TCP access)."
+          echo "Minecraft server started."
+
+      # --- INSTALL PLAYIT.GG CLIENT ---
+      - name: Install playit.gg client
+        run: |
+          curl -sSL https://cdn.playit.gg/downloads/playit-linux.tar.gz | tar -xz
+          chmod +x playit
+          mv playit /usr/local/bin/playit
+
+      # --- START PLAYIT.GG TUNNEL ---
+      - name: Start playit.gg tunnel
+        run: |
+          playit connect --token ${{ secrets.PLAYIT_TOKEN }} &
+          sleep 10
+          echo "Playit.gg tunnel started. Public address will appear in logs."
 
       # --- CONTINUOUS BACKUP EVERY MINUTE ---
       - name: Continuous backup every minute
