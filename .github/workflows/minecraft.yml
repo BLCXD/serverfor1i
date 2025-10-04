@@ -1,4 +1,4 @@
-name: Minecraft Server Continuous Backup
+name: Minecraft Server Continuous Backup with Cloudflare
 
 on:
   schedule:
@@ -13,25 +13,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- NGROK ---
-      - name: Install dependencies and download ngrok v3
+      # --- SETUP JAVA 21 ---
+      - name: Set up Java 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+          distribution: temurin
+
+      # --- INSTALL DEPENDENCIES ---
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y curl unzip jq
-          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o ngrok.zip
-          unzip ngrok.zip
-          sudo mv ngrok /usr/local/bin/ngrok
-          ngrok version
+          sudo apt install -y curl unzip jq socat
 
-      - name: Authenticate ngrok
-        run: |
-          if [ -z "${{ secrets.NGROK_AUTH_TOKEN }}" ]; then
-            echo "ERROR: NGROK_AUTH_TOKEN is not set!"
-            exit 1
-          fi
-          ngrok authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
-
-      # --- PAPERMC SERVER ---
+      # --- DOWNLOAD PAPERMC ---
       - name: Download PaperMC
         run: |
           mkdir -p server
@@ -51,16 +46,19 @@ jobs:
             tar -xzf ../world-backup.tar.gz
           fi
 
-      # --- START SERVER + NGROK ---
-      - name: Start Minecraft Server with ngrok
+      # --- START SERVER ---
+      - name: Start Minecraft Server
         run: |
           cd server
           java -Xmx2G -Xms1G -jar server.jar nogui &
-          sleep 30
-          ngrok tcp 25565 --log=stdout > ngrok.log &
-          sleep 10
-          echo "Public server URL:"
-          curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+
+      # --- CLOUDflare TUNNEL ---
+      - name: Start Cloudflare Tunnel
+        run: |
+          curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+          cloudflared tunnel --url tcp://localhost:25565 --no-autoupdate &
+          echo "Cloudflare Tunnel running. Check your tunnel dashboard for public address."
 
       # --- CONTINUOUS BACKUP EVERY MINUTE ---
       - name: Continuous backup every minute
