@@ -18,12 +18,12 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Download ngrok
+      - name: Download ngrok (v3)
         run: |
           sudo apt update
-          sudo apt install -y jq curl unzip
-          curl -sSL https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -o ngrok.zip
-          unzip ngrok.zip
+          sudo apt install -y jq curl tar unzip
+          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
+          tar -xvzf ngrok.tgz
           sudo mv ngrok /usr/local/bin/
 
       - name: Start Minecraft Server
@@ -34,8 +34,8 @@ jobs:
 
       - name: Expose via ngrok
         run: |
-          ngrok authtoken ${{ secrets.NGROK_TOKEN }}
-          ngrok tcp 25565 --log=stdout &
+          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
+          nohup ngrok tcp 25565 --log=stdout &
           sleep 10
           echo "Public server URL:"
           curl --silent http://127.0.0.1:4040/api/tunnels | jq '.tunnels[0].public_url'
