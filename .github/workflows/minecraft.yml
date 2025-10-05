@@ -1,74 +1,71 @@
-name: Minecraft Server with Playit.gg
+name: Minecraft Server with Playit.gg (Local)
 
 on:
   schedule:
-    - cron: "*/355 * * * *"  # restart co 5 godzin 55 minut
-  workflow_dispatch:
+    - cron: "*/355 * * * *"  # restart co 5 godzin i 55 minut
+  workflow_dispatch:          # ręczne uruchomienie
 
 jobs:
-  run-server:
+  minecraft-server:
     runs-on: ubuntu-latest
 
     steps:
+      # --- KROK 1: Pobranie repozytorium ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- SETUP JAVA 21 ---
-      - name: Set up Java 21
+      # --- KROK 2: Instalacja Javy 21 ---
+      - name: Setup Java 21
         uses: actions/setup-java@v3
         with:
           java-version: 21
           distribution: temurin
 
-      # --- INSTALL DEPENDENCIES ---
+      # --- KROK 3: Instalacja zależności ---
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y curl unzip jq
+          sudo apt install -y jq curl unzip tar
 
-      # --- DOWNLOAD PAPERMC ---
+      # --- KROK 4: Pobranie najnowszego PaperMC ---
       - name: Download PaperMC
         run: |
           mkdir -p server
           cd server
-          PAPER_BUILD=$(curl -s https://api.papermc.io/v2/projects/paper | jq -r '.versions[-1]')
-          LATEST_BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/$PAPER_BUILD/builds | jq -r '.builds[-1].build')
-          DOWNLOAD_URL="https://api.papermc.io/v2/projects/paper/versions/$PAPER_BUILD/builds/$LATEST_BUILD/downloads/paper-$PAPER_BUILD-$LATEST_BUILD.jar"
-          curl -sSL "$DOWNLOAD_URL" -o server.jar
+          VERSION=$(curl -s https://api.papermc.io/v2/projects/paper | jq -r '.versions[-1]')
+          BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/$VERSION/builds | jq -r '.builds[-1].build')
+          URL="https://api.papermc.io/v2/projects/paper/versions/$VERSION/builds/$BUILD/downloads/paper-$VERSION-$BUILD.jar"
+          curl -sSL "$URL" -o server.jar
           echo "eula=true" > eula.txt
+          echo "PaperMC version $VERSION build $BUILD downloaded."
 
-      # --- RESTORE WORLD ---
-      - name: Restore world from backup
+      # --- KROK 5: Przywracanie świata z backupu (jeśli istnieje) ---
+      - name: Restore world backup
         run: |
           cd server
           if [ -f ../world-backup.tar.gz ]; then
-            echo "Restoring world from backup..."
+            echo "Restoring world from previous backup..."
             tar -xzf ../world-backup.tar.gz
           fi
 
-      # --- START SERVER ---
-      - name: Start Minecraft Server
+      # --- KROK 6: Uruchomienie serwera Minecraft ---
+      - name: Start Minecraft server
         run: |
           cd server
           java -Xmx2G -Xms1G -jar server.jar nogui &
           sleep 10
-          echo "Minecraft server started."
+          echo "Minecraft server started successfully."
 
-      # --- INSTALL PLAYIT.GG CLIENT ---
-      - name: Install playit.gg client
+      # --- KROK 7: Uruchomienie klienta Playit.gg (lokalnie z repo) ---
+      - name: Start Playit.gg tunnel
         run: |
-          curl -sSL https://cdn.playit.gg/downloads/playit-linux.tar.gz | tar -xz
-          chmod +x playit
-          mv playit /usr/local/bin/playit
-
-      # --- START PLAYIT.GG TUNNEL ---
-      - name: Start playit.gg tunnel
-        run: |
+          chmod +x server/playit
+          mv server/playit /usr/local/bin/playit
           playit connect --token ${{ secrets.PLAYIT_TOKEN }} &
           sleep 10
-          echo "Playit.gg tunnel started. Public address will appear in logs."
+          echo "Playit.gg tunnel started. Check logs below for public address."
 
-      # --- CONTINUOUS BACKUP EVERY MINUTE ---
+      # --- KROK 8: Automatyczny backup świata co minutę ---
       - name: Continuous backup every minute
         run: |
           cd server
@@ -83,9 +80,9 @@ jobs:
               if ! git diff --cached --quiet; then
                 git commit -m "Auto backup iteration $i"
                 git push || true
-                echo "Backup $i committed."
+                echo "Backup $i committed and pushed."
               else
-                echo "No changes for iteration $i."
+                echo "No changes detected for iteration $i."
               fi
             fi
             sleep 60
