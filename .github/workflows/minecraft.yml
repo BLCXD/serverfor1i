@@ -1,4 +1,4 @@
-name: Minecraft Server with Playit Tunnel
+name: Minecraft Server with Portmap Tunnel
 
 on:
   workflow_dispatch:
@@ -29,29 +29,33 @@ jobs:
         run: |
           curl -o paperclip.jar https://api.papermc.io/v2/projects/paper/versions/1.21.1/builds/100/downloads/paper-1.21.1-100.jar
 
-      - name: 🌐 Download Playit.gg client
+      - name: 🔧 Download Portmap.io client
         working-directory: server
         run: |
-          curl -L https://playit.gg/downloads/playit-linux -o playit-linux
-          chmod +x playit-linux
+          curl -Lo portmap https://github.com/portmap-io/portmap-client/releases/latest/download/portmap-linux-amd64
+          chmod +x portmap
+
+      - name: 🔐 Authenticate Portmap.io
+        working-directory: server
+        run: |
+          ./portmap init --token ${{ secrets.PORTMAP_API_TOKEN }}
 
       - name: 🚀 Start Minecraft server
         working-directory: server
         run: |
           nohup java -Xms1G -Xmx2G -jar paperclip.jar nogui &
-          sleep 20
 
-      - name: 🌍 Start Playit tunnel
+      - name: 🌐 Start Portmap tunnel
         working-directory: server
         run: |
-          ./playit-linux --token ${{ secrets.PLAYIT_TOKEN }} > playit.log 2>&1 &
+          nohup ./portmap connect server/portmap.ovpn > portmap.log 2>&1 &
           sleep 15
 
-      - name: 🔎 Extract Playit public address
+      - name: 🔎 Extract Portmap public address
         id: get_address
         run: |
           sleep 5
-          ADDRESS=$(grep -oE "([a-z0-9-]+\.playit\.gg:[0-9]+)" server/playit.log | head -n 1)
+          ADDRESS=$(grep -oE "([a-z0-9-]+\.portmap\.host:[0-9]+)" server/portmap.log | head -n 1)
           if [ -z "$ADDRESS" ]; then
             echo "❌ Nie znaleziono adresu tunelu!"
             exit 1
